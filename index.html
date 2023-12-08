@@ -7,6 +7,9 @@
     <!-- vuetify CDN -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vuetify@3.4.6/dist/vuetify.min.css">
     <link href="https://cdn.jsdelivr.net/npm/@mdi/font@4.x/css/materialdesignicons.min.css" rel="stylesheet"/>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;700&family=Nunito:wght@200;300;400;700;800;900&family=Open+Sans:wght@400;700&family=Work+Sans:wght@200;300;400;500;600;700;800&display=swap" rel="stylesheet">
     <title>Faicon-Generator</title>
 </head>
 <body>
@@ -20,22 +23,28 @@
                 <v-container >
                     <v-card variant="tonal">
                         <v-card class="innin-Card" variant="tonal">
-                            <h3>Add Foto</h3>
-                            <div class="FotoBackground" >
-                                <img class="icon" v-if="selectedFileURL" :src="selectedFileURL" alt="Uploaded Image">
+                            <h3>Favicon-Generator</h3>
+                            <div class="FotoBackground"  :style="{ 'background-color': nueColorfull , width: widthSize + 'px', height: heighSize + 'px',filter: GrayscaleColor }" >
+                                <img for="input-file" class="icon" v-if="selectedFileURL" :src="selectedFileURL" alt="Uploaded Image">
                             </div>
                             <!-- <v-input class="input" class="input" label="Image input"></v-input> -->
                         </v-card>
                             <!-- <v-label for="input-file" >add image</v-label> -->
-                        <input type="file" class="input" @change="onFileSelected" id="input-file">
-                        <input>
-                            <hr style="width: 80%; margin: 0 auto;">
-                                <div style="margin: 10px 90px" >
-                                    <p>Selected Button: ({{ selectedOption.Width }}) x ({{ selectedOption.Height }})</p>
-                                    <v-radio-group inline v-model="selectedOption">
-                                        <v-radio v-for="imgOption in imgSizeOptions" :key="imgOption.id" :label="imgOption.name" :value="imgOption.value"></v-radio>
-                                    </v-radio-group>
-                                </div>
+                        <input type="file" class="input"  @change="onFileSelected" id="input-file"><input>
+                        <v-text-field @keydown.enter.prevent ="backgroundColorChange" class="color-input" v-model="nueColor" label="Background-color: #"></v-text-field>
+                        <v-divider inset style="width: 80%; margin: 0 auto;"></v-divider>
+                        <div style="margin: 10px 90px" >
+                            <p v-if="selectedOption.Width && selectedOption.Height">Ausgewählt Option: {{ selectedOption.Width }} px  {{ selectedOption.Height }} px</p>
+                            <p v-else>Ausgewählt Option: {{ selectedOption.Width }}</p>
+                            
+                            <v-radio-group inline v-model="selectedOption">
+                                <v-radio v-for="imgOption in imgSizeOptions" v-model="imgOption.id" :key="imgOption.id" @click="changeImageSize(imgOption.value)" :label="imgOption.name" :value="imgOption.value"></v-radio>
+                            </v-radio-group>
+                            <v-col  >
+                                <!-- <v-btn class="save" size="x-large"   @click.prevent="$emit('save')">Icon speichern</v-btn> -->
+                                <v-btn class="save" size="x-large"   @click.prevent="saveImageLocallyInBrowser(selectedFileURL,'Icon.png')">Icon speichern</v-btn>
+                            </v-col>
+                        </div>
                             
                     </v-card>
                 </v-container>
@@ -43,14 +52,20 @@
         </script>
 
     <script>
-        const {createApp, ref } = Vue
+        const {createApp, ref, onMounted  } = Vue
         const { createVuetify } = Vuetify
 
-        const vuetify = createVuetify()
+        const vuetify = createVuetify();
         const app = createApp({
             template: '#app-template',
+
             setup(){
-                const selectedFileURL = ref(null)
+                const selectedFileURL = ref(null);
+                const selectedTarget = ref(null);
+                const nueColor = ref('')
+                const nueColorfull = ref('')
+
+                // const inputFile = ref(document.getElementsByClassName('input'));
                 const imgSizeOptions  = ([
                     {
                         id: 1,
@@ -68,20 +83,27 @@
                     },
                     {
                         id: 3,
-                        name: 'Web-PNG',
+                        name: 'Web-PNG 192px',
                         value: {Width: 192, Height: 192},
                         safezone: true,
                         clicked: false
                     },
                     {
                         id: 4,
+                        name: 'Web-PNG 512px',
+                        value: {Width: 512, Height: 512},
+                        safezone: true,
+                        clicked: false
+                    },
+                    {
+                        id: 5,
                         name: 'Apple-Touch ',
                         value: {Width: 180, Height: 180},
                         safezone: true,
                         clicked: false
                     },
                     {
-                        id: 5,
+                        id: 6,
                         name: 'Microsoft',
                         value: {Width: 150, Height: 150},
                         safezone: true,
@@ -89,52 +111,61 @@
                         clicked: false
                     },
                     {
-                        id: 6,
-                        name: 'Safari Pinned ',
-                        value: {Width: 'balck', Height: 'whgit'},
+                        id: 7,
+                        name: 'Safari Pinned (Grayscale)',
+                        value: {Width: 'grayscale(100%)', Height: ''},
                         safezone: false,
                         clicked: false
                     },
-                ])
-                const WidthSize = 250
-                const WidthHeight = 250
+                ]);
+                const widthSize = ref(250);
+                const heighSize = ref(250);
+                const GrayscaleColor = ref('')
 
-                console.log(WidthSize)
-                console.log(WidthHeight)
+                console.log(widthSize);
+                console.log(heighSize);
 
                 const selectedOption = ref(imgSizeOptions[0].value);
 
                 const convertImageToSize = (selectedFile, widthSize, heightSize) => {
+                    // neuURL.value = selectedFile 
                     return new Promise((resolve) => {
                         const selFile = selectedFile;
                         if (!selFile) {
-                        resolve('');
-                        return;
+                            resolve('Ungültige Datei');
+                            return;
                         }
 
                         const reader = new FileReader();
                         reader.onload = (e) => {
-                        const img = new Image();
-                        img.onload = () => {
-                            const canvas = document.createElement('canvas');
-                            const ctx = canvas.getContext('2d');
-                            canvas.width = widthSize;
-                            canvas.height = heightSize;
-                            // Zeichne das Bild auf das Canvas und skaliere es auf die gewünschte Größe
-                            ctx.drawImage(img, 0, 0, widthSize, heightSize);
-                            // Konvertiere das Canvas-Bild zu Base64
-                            const convertedImageURL = canvas.toDataURL('image/png'); // Du kannst auch 'image/png' verwenden
-                            resolve(convertedImageURL);
+                            const img = new Image();
+                            img.onload = () => {
+                                const canvas = document.createElement('canvas');
+                                const ctx = canvas.getContext('2d');
+                                canvas.width = widthSize;
+                                canvas.height = heightSize;
+                                // Zeichne das Bild auf das Canvas und skaliere es auf die gewünschte Größe
+                                ctx.drawImage(img, 0, 0, widthSize, heightSize);
+                                // Konvertiere das Canvas-Bild zu Base64
+                                const convertedImageURL = canvas.toDataURL('image/png'); // Du kannst auch 'image/png' verwenden
+                                resolve(convertedImageURL);
+                                // Verwende diese Funktion, nachdem das Bild konvertiert wurde
+                                // saveImageToLocalStorage(convertedImageURL);
+                            };
+                            img.src = e.target.result;
                         };
-                        img.src = e.target.result;
+                        
+                        reader.onerror = () => {
+                        resolve('Fehler beim Lesen der Datei');
                         };
+
                         reader.readAsDataURL(selFile);
                     });
-                }
-            
+                }               
+                
                 const onFileSelected = async (event) => {
+                    selectedTarget.value = event;
                     const selectedFile = event.target.files[0];
-
                     if (selectedFile) {
                         // Bild in Base64 konvertieren
                         const reader = new FileReader();
@@ -143,41 +174,84 @@
                             console.log(selectedFileURL.value);
 
                             // Konvertiere das Bild in die gewünschte Größe
-                            const convertedImageURL = await convertImageToSize(selectedFile, 250, 250);
-
+                            const convertedImageURL = await convertImageToSize(selectedFile, widthSize.value, heighSize.value);
                             // Verwende die konvertierte URL für das Bild im Canvas
                             selectedFileURL.value = convertedImageURL;
                         };
                         reader.readAsDataURL(selectedFile);
+                        
                     }
                 };
-                return {  imgSizeOptions, selectedOption, selectedFileURL, onFileSelected, convertImageToSize}
+
+                
+                const saveImageLocallyInBrowser = async (dataURL, fileName) => {
+                    // convertImageToSize(dataURL, widthSize.value, heighSize.value)
+                    console.log(selectedTarget.value)
+                    onFileSelected(selectedTarget.value)
+                    const link = document.createElement('a');
+                    link.href = dataURL;
+                    link.download = fileName;
+                    link.click();
+                };
+
+                const saveImageToLocalStorage = (dataURL) => {
+                    // Speichere das Bild in der Local Storage
+                    localStorage.setItem('konvertiertesBild', dataURL);
+                };
+
+                const changeImageSize = (sizeOpject) => {
+                    if(sizeOpject.Height && sizeOpject.Width){
+                        widthSize.value = sizeOpject.Width,
+                        heighSize.value = sizeOpject.Height
+                        GrayscaleColor.value = ''
+                    }
+                    else {
+                        GrayscaleColor.value = sizeOpject.Width
+                    }
+                    console.log(widthSize.value)
+                    console.log(heighSize.value)
+                    
+                }    
+
+                const backgroundColorChange = () => {
+                    nueColorfull.value = nueColor.value ;
+                }
+                return {widthSize,GrayscaleColor, heighSize, nueColorfull, backgroundColorChange, nueColor, imgSizeOptions, selectedOption, selectedFileURL, onFileSelected, convertImageToSize, saveImageLocallyInBrowser, changeImageSize}
             }
+
         }).use(vuetify).mount('#app')
     </script> 
 </body>
 </html>
 
 <style>
+    /* genral fonts */
+body {
+    font-family: 'Cairo', sans-serif;
+}
 .innin-Card {
+    display: block;
     position: relative;
-    width: 450px;
-    height: 400px;
     padding: 20px;
-    margin: 20px auto;
+    margin: 50px 100px;
 
 }
 .innin-Card h3 {
     text-align: center;
+    text-decoration: underline;
     padding: 0;
     margin: 0;
 }
 .FotoBackground {
+    display: block;
     position: relative;
     width: 250px;
     height: 250px;
-    background-color: aliceblue;
-    margin: 30px 80px;
+    background-color: transparent ;
+    margin: 30px auto;
+    /* padding: 10px; */
+    border: 1px solid rgb(197, 195, 195);
+    z-index: 1;
 
 }
 .FotoBackground .icon {
@@ -187,11 +261,26 @@
     object-fit: cover;
 }
 .input {
-    text-align: center;
-    position: relative;
-    margin: 10px 300px ;
+    display: block;
+    margin: 0 auto;
 }
 .continer h3 {
     margin: 0 auto;
 }
+.save {
+    margin: 0 auto 20px;
+    display: block;
+}
+
+.color-input {
+    display: block;
+    width: 200px;
+    margin: 0 auto;
+}
+
+#nueBackColor{
+    background-color: transparent ;
+}
+
+
 </style>

@@ -18,9 +18,9 @@ const {createApp, ref, onMounted, watch, reactive  } = Vue
                 const imgSizeOptions  = ([
                     {
                         id: 1,
-                        name: 'none',
+                        name: 'default',
                         value: {Width: 250, Height: 250},
-                        safezone: true,
+                        safezone: false,
                         clicked: false
                     },
                     {
@@ -70,78 +70,99 @@ const {createApp, ref, onMounted, watch, reactive  } = Vue
                 const widthSize = ref(250);
                 const heightSize = ref(250);
                 const GrayscaleColor = ref('')
+                const ctxGlobal = ref('')
 
-                // console.log(widthSize.value);
-                // console.log(widthSize.value);
-
-                // const selectedOption = ref(imgSizeOptions[0].value);
+                const selectedOption = ref(imgSizeOptions[0].value);
                 
+                const drawBackground = (ctx, width, height, color) => {
+                    if (color !== '') {
+                        ctx.fillStyle = color;
+                        ctx.fillRect(0, 0, width, height);
+                        console.log('Background color applied: ' + color);
+                    }
+                };
+
+                const drawSafeZone = (ctx, width, height) => {
+                    const safezoneRadius = Math.min(width, height) * (4 / 5) / 2; // 4/5 safezone
+                
+                    ctx.beginPath();
+                    ctx.arc(width / 2, height / 2, safezoneRadius, 0, 2 * Math.PI);
+                    ctx.fill();
+                
+                    console.log('Safe Zone applied');
+                };
+
                 // Es ist nicht zu 100% richtig ich muss daran wieder arbeiten
-                const convertImageWithBackgroundAndMask = (selectedFile, backgroundColor, maskColor, widthSize, heightSize) => {
-                    return new Promise((resolve) => {
+                const convertImageWithBackgroundAndMask = async (selectedFile, backgroundColor, maskColor, widthSize, heightSize) => {
+                    return new Promise(async (resolve, reject) => {
                         const selFile = selectedFile;
                         if (!selFile) {
-                            resolve('Ungültige Datei');
+                            reject('Ungültige Datei');
                             return;
                         };
                         const reader = new FileReader();
-                        reader.onload = (e) => {
-                            const img = new Image();
-                            img.onload = () => {
-                                const canvas = document.createElement('canvas');
-                                const ctx = canvas.getContext('2d');
-                                canvas.width = widthSize;
-                                canvas.height = heightSize;
-                                
-                                console.log('widthSize' + widthSize)
-                                console.log( 'heightSize' + heightSize)
-                                
-                                if(singleImgSizeOpject.value.safezone !== undefined) {
-
-                                    // Es ist nicht zu 100% richtig ich muss daran wieder arbeiten
-                                    if(neuColor.value !== '' ) {
-                                        ctx.fillStyle = backgroundColor;
-                                        ctx.fillRect(0, 0, canvas.width, canvas.height);
-                                        console.log( 'neuColor.value ist: ' + neuColor.value)
-                                    } 
-                                     // Es ist nicht zu 100% richtig ich muss daran wieder arbeiten
-                                    // if(widthSize !== 250 && neuColor.value !== '') {
-                                    //     ctx.fillStyle = backgroundColor;
-                                    //     ctx.fillRect(0, 0, canvas.width, canvas.height);
-                                    //     console.log( 'backgroundColor ist: ' + backgroundColor)
-                                    // } 
+                        reader.onload = async  (e) => {
+                            try {
+                                const img = new Image();
+                                img.onload = async  () => {
+                                    const canvas = document.createElement('canvas');
+                                    const ctx = canvas.getContext('2d');
+                                    ctxGlobal.value = ctx;
+                                    canvas.width = widthSize;
+                                    canvas.height = heightSize;
                                     
-                                    // Zeichne die Safe Zone
-                                    else if( singleImgSizeOpject.value.safezone) {
-                                        console.log('0123')
-                                        const safezoneRadius = Math.min(canvas.width, canvas.height) * (4 / 5) / 2; // 4/5 safezone
-                                        ctx.beginPath();
-                                        ctx.arc(canvas.width / 2, canvas.height / 2, safezoneRadius, 0, 2 * Math.PI);
-                                        ctx.fill();
-    
+                                    console.log('widthSize' + widthSize)
+                                    console.log( 'heightSize' + heightSize)
+                                    
+                                    if(singleImgSizeOpject.value.safezone !== undefined) {
+                                        // Zeichne die Safe Zone
+                                        if(singleImgSizeOpject.value.safezone) {
+                                            // drawSafeZone(ctx, canvas.width, canvas.height);
+                                            const safezoneRadius = Math.min(canvas.width, canvas.height) * (4 / 5) / 2; // 4/5 safezone
+                                            ctx.beginPath();
+                                            ctx.arc(canvas.width / 2, canvas.height / 2, safezoneRadius, 0, 2 * Math.PI);
+                                            if(maskColor !== '') {
+                                                ctx.fillStyle = maskColor;
+                                                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                                            }
+                                            ctx.fill();
+                                            console.log('safezone is applied')
+                                            
+                                        } 
                                         // Schneide den Canvas-Bereich auf die Safe Zone aus
                                         ctx.globalCompositeOperation = 'source-in'
                                     }
-                                } 
-                                // Zeichne den Hintergrund
+                                    // Es ist nicht zu 100% richtig ich muss daran wieder arbeiten
+                                    // Zeichne den Hintergrund
+                                    if(backgroundColor !== '' ) {
+                                        // drawBackground(ctx, canvas.width, canvas.height, backgroundColor);
+                                        // console.log('backgroundColor is mead')
+                                        // ctx.globalCompositeOperation = 'source-over';
+                                        ctx.fillStyle = backgroundColor;
+                                        ctx.fillRect(0, 0, canvas.width, canvas.height);
+                                        console.log('Background color applied: ' + backgroundColor);
+                                    } 
+                                    
+                                    // Zeichne das Bild innerhalb der Safe Zone
+                                    ctx.drawImage(img, 0, 0, widthSize, heightSize);
 
-                                // Zeichne das Bild innerhalb der Safe Zone
-                                ctx.drawImage(img, 0, 0, widthSize, heightSize);
-                                
-                                // Setze den Blend-Modus zurück
-                                ctx.globalCompositeOperation = 'source-over';
-
-                                // Konvertiere das Canvas-Bild zu Base64
-                                const convertedImageURL = canvas.toDataURL('image/*');
-                                resolve(convertedImageURL);
-                            };
-                            img.src = e.target.result;
+                                    // Setze den Blend-Modus zurück
+                                    ctx.globalCompositeOperation = 'source-over';
+                                    
+                                    // Konvertiere das Canvas-Bild zu Base64
+                                    const convertedImageURL = canvas.toDataURL('image/*');
+                                    selectedFileURL.value = convertedImageURL; // new
+                                    resolve(convertedImageURL);
+                                };
+                                img.src = e.target.result;
+                                selectedFileURL.value = e.target.result; // new
+                            } catch (error) {
+                                reject('Fehler beim Verarbeiten des Bildes: ' + error.message);
+                            }
                         };
-                        
                         reader.onerror = () => {
-                        resolve('Fehler beim Lesen der Datei');
+                            reject('Fehler beim Lesen der Datei');
                         };
-
                         reader.readAsDataURL(selFile);
                     });
                 };   
@@ -149,28 +170,15 @@ const {createApp, ref, onMounted, watch, reactive  } = Vue
                 //Um das Icon zu zeigen
                 const onFileSelected = async (event) => {
                     
-                    if(selectedTarget.value == null){
+                    if(selectedTarget.value === null){
                         selectedTarget.value = event;
-                        console.log(selectedTarget.value + '5001')
-                        // console.log(selectedTarget.value + '2')
                     }
 
                     const selectedFile = event.target.files[0];
-                    // console.log(selectedFile + 'selectedFile33333333333');
                     if (selectedFile) {
-                        // Bild in Base64 konvertieren
-                        const reader = new FileReader();
-                        reader.onload = async (e) => {
-                            selectedFileURL.value = e.target.result;
-                            // console.log(selectedFileURL.value);
-                            // console.log(widthSize.value + 'onFileSelected')
-                            // console.log(heightSize.value + "onFileSelected")
-                            // Konvertiere das Bild in die gewünschte Größe
-                            const convertedImageURL = await convertImageWithBackgroundAndMask(selectedFile, neuColorfull.value, neuColorMaske.value, widthSize.value, heightSize.value);
-                            // die konvertierte URL für das Bild im Canvas
-                            selectedFileURL.value = convertedImageURL;
-                        };
-                        reader.readAsDataURL(selectedFile);
+                        // Konvertiere das Bild in die gewünschte Größe
+                        await convertImageWithBackgroundAndMask(selectedFile, neuColorfull.value, neuColorMaske.value, widthSize.value, heightSize.value);
+                        
                         
                     }
                 };
@@ -178,13 +186,15 @@ const {createApp, ref, onMounted, watch, reactive  } = Vue
                 const saveImageLocallyInBrowser = async (dataURL, fileName) => {
                     
                     // console.log(selectedTarget.value);
-                    await onFileSelected(selectedTarget.value);
-                    console.log('saveImageLocallyInBrowser'+ neuColorfull.value)
-                    console.log('saveImageLocallyInBrowser'+ neuColorMaske.value)
-                    const convertedDataURL = await convertImageWithBackgroundAndMask(selectedTarget.value.target.files[0], neuColorfull.value, neuColorMaske.value, widthSize.value, heightSize.value);
+                    // if() {
+                    //     await onFileSelected(selectedTarget.value);
+                    //     console.log('saveImageLocallyInBrowser'+ neuColorfull.value)
+                    //     console.log('saveImageLocallyInBrowser'+ neuColorMaske.value)
+                    // }
+                        // const convertedDataURL = await convertImageWithBackgroundAndMask(selectedTarget.value.target.files[0], neuColorfull.value, neuColorMaske.value, widthSize.value, heightSize.value);
                     // Erstellung eines Download-Links
                     const link = document.createElement('a');
-                    link.href = convertedDataURL;
+                    link.href = selectedFileURL.value;
                     link.download = fileName;
                     link.click();
                     // window.location.reload();
@@ -198,29 +208,21 @@ const {createApp, ref, onMounted, watch, reactive  } = Vue
                 const changeImageSize = async (sizeOpject) => {
                     // Speicherung des ausgewähltes Objektes local
                     singleImgSizeOpject.value = sizeOpject
-                    console.log(singleImgSizeOpject.value.name + 'changeImageSize')
-                        console.log('changeImageSize selectedTarget' + selectedTarget.value)
-                        await onFileSelected(selectedTarget.value)
-                    
-                        if(selectedFileURL.value) {
-                            if(sizeOpject.value.Height === sizeOpject.value.Width){
-                                GrayscaleColor.value = ''
-                                // console.log(sizeOpject.value.Width + 'changeImageSize')
-                            // console.log(sizeOpject.value.Height + 'changeImageSize')
+                    // await onFileSelected(selectedTarget.value)
+                
+                    if(selectedFileURL.value) {
+                        if(sizeOpject.value.Height === sizeOpject.value.Width){
+                            GrayscaleColor.value = ''
                             widthSize.value = sizeOpject.value.Width
                             heightSize.value = sizeOpject.value.Height
                         }
                         else {
-                            // widthSize.value = ''
-                            // heightSize.value = ''
                             GrayscaleColor.value = sizeOpject.value.Width
                         }
                         await onFileSelected(selectedTarget.value)
                         // changeImage Size Überwachung
                         state.changeImageSizeCalled = !state.changeImageSizeCalled;
-                        console.log(widthSize.value)
-                        console.log(heightSize.value)
-
+                        
                     }
                     
                 };    
@@ -232,35 +234,31 @@ const {createApp, ref, onMounted, watch, reactive  } = Vue
                     backgroundColorChange()
                 });
 
-                const backgroundColorChange = () => {
+                const backgroundColorChange = async () => {
                     // changeImage Size Überwachung
                     if(selectedFileURL.value) {
-                        if(widthSize.value === 250 ) {
-                            // neuColorMaske.value =  'transparent';
-                            // neuColorfull.value = 'transparent';
-                            neuColorfull.value = neuColor.value;
-                            neuColorMaske.value = neuColorfull.value;
+                        if(singleImgSizeOpject.value.safezone && neuColor.value !== '' || GrayscaleColor.value) {
+                            console.log('singleImgSizeOpject neuColorneuColorneuColor')
+                            neuColorfull.value = '';
+                            neuColorMaske.value = neuColor.value;
                             
-                        } else if (GrayscaleColor.value){
-                            neuColorfull.value = neuColor.value;
-                            neuColorMaske.value = neuColorfull.value;
+                        } 
+                        // else if (GrayscaleColor.value && neuColor.value !== ''){
+                        //     neuColorfull.value = '';
+                        //     neuColorMaske.value = neuColor.value;
 
-                        } else if (neuColor.value === '') {
+                        // } 
+                        else if (neuColor.value === '') {
                             neuColorfull.value = '';
                             neuColorMaske.value = '';
-
-                        }else if (neuColor.value !== '' && widthSize.value !== 250){
-                            neuColorfull.value = neuColor.value;
-                            neuColorMaske.value = neuColor.value;
                         }
                         else{
-                            // neuColorfull.value = neuColor.value;
                             neuColorfull.value = neuColor.value ;
-                            neuColorMaske.value = neuColorfull.value ;
+                            neuColorMaske.value = neuColor.value ;
                         }
                     }
                 };
 
-                return {widthSize,GrayscaleColor, heightSize,neuColorMaske, neuColorfull, neuColor, backgroundColorChange, imgSizeOptions, imgOption, selectedFileURL, onFileSelected, convertImageWithBackgroundAndMask, saveImageLocallyInBrowser, changeImageSize}
+                return {selectedOption, widthSize,GrayscaleColor, heightSize,neuColorMaske, neuColorfull, neuColor, backgroundColorChange, imgSizeOptions, imgOption, selectedFileURL, onFileSelected, convertImageWithBackgroundAndMask, saveImageLocallyInBrowser, changeImageSize}
             }
         }).use(vuetify).mount('#app')
